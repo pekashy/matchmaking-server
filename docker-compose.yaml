@@ -1,0 +1,116 @@
+version: "3.8"
+services:
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "8050:8050"
+    networks:
+      - matchmaking-network
+    depends_on:
+      - start-matchmaking-queue
+      - userdata
+  matchmaking:
+    build:
+      context: ./matchmaking
+      dockerfile: Dockerfile
+    networks:
+      - matchmaking-network
+    ports:
+      - "8051:8050"
+    depends_on:
+      - start-matchmaking-queue
+      - matched-games-queue
+      - userdata
+      - deduplication-cache
+      - open-matches-db-coordinator
+  transactions:
+    build:
+      context: ./transactions
+      dockerfile: Dockerfile
+    networks:
+      - matchmaking-network
+    depends_on:
+      - matched-games-queue
+      - userdata
+  start-matchmaking-queue:
+    image: rabbitmq:3-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password
+    ports:
+      # AMQP protocol port
+      - '5672:5672'
+      # HTTP management UI
+      - '15672:15672'
+    networks:
+      - matchmaking-network
+  matched-games-queue:
+    image: rabbitmq:3-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=user
+      - RABBITMQ_DEFAULT_PASS=password
+    ports:
+      # AMQP protocol port
+      - '5673:5672'
+      # HTTP management UI
+      - '15673:15672'
+    networks:
+      - matchmaking-network
+  deduplication-cache:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    volumes: 
+      - ./db/data/dedup_cache:/data
+    networks:
+      - matchmaking-network
+  userdata:
+    image: mongo:6.0-focal
+    restart: always
+    networks:
+      - matchmaking-network
+    environment:
+      - MONGO_DATA_DIR=/usr/data/db
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - ./db/data/user_data:/usr/data/db
+    ports:
+      - "27018:27017"
+  open-matches-db-coordinator:
+    build:
+      context: ./matches
+      dockerfile: Dockerfile-riak-coordinator
+    ports:
+      - "8087"
+      - "8098"
+    environment:
+      - CLUSTER_NAME=riakkv
+    labels:
+      - "com.basho.riak.cluster.name=riak-kv"
+    volumes:
+      - ./db/data/matches:/usr/data/db
+    networks:
+      - matchmaking-network
+  open-matches-db-member:
+    build:
+      context: ./matches
+      dockerfile: Dockerfile-riak-member
+    ports:
+      - "8088:8087"
+      - "8099:8098"
+    labels:
+      - "com.basho.riak.cluster.name=riak-kv"
+    networks:
+      - matchmaking-network
+    depends_on:
+      - open-matches-db-coordinator
+    environment:
+      - CLUSTER_NAME=riakkv
+      - COORDINATOR_NODE=coordinator
+networks:
+  matchmaking-network:
+    driver: bridge
