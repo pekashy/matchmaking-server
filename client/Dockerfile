@@ -1,6 +1,7 @@
 FROM python:3.10-buster
-RUN pip install Flask==2.2.2
-RUN mkdir /code
-COPY . /code
+COPY client/requirements.txt .
+RUN pip install -r requirements.txt
+COPY client/. .
+COPY schemas schemas
 
-CMD ["python3", "/code/service.py"]
+CMD ["python3", "service.py"]

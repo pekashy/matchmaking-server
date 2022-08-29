@@ -2,8 +2,8 @@ version: "3.8"
 services:
   client:
     build:
-      context: ./client
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: client/Dockerfile
     ports:
       - "8050:8050"
     networks:
@@ -11,6 +11,8 @@ services:
     depends_on:
       - start-matchmaking-queue
       - userdata
+    volumes:
+      - ./logs:/logs
   matchmaking:
     build:
       context: ./matchmaking
@@ -25,6 +27,8 @@ services:
       - userdata
       - deduplication-cache
       - open-matches-db-coordinator
+    volumes:
+      - ./logs:/logs
   transactions:
     build:
       context: ./transactions
@@ -46,6 +50,8 @@ services:
       - '15672:15672'
     networks:
       - matchmaking-network
+    volumes:
+      - ./logs:/logs
   matched-games-queue:
     image: rabbitmq:3-management-alpine
     environment:
@@ -64,7 +70,7 @@ services:
     ports:
       - '6379:6379'
     command: redis-server --save 20 1 --loglevel warning
-    volumes: 
+    volumes:
       - ./db/data/dedup_cache:/data
     networks:
       - matchmaking-network
@@ -89,6 +95,7 @@ services:
       - "8098"
     environment:
       - CLUSTER_NAME=riakkv
+      - WAIT_FOR_ERLANG=60
     labels:
       - "com.basho.riak.cluster.name=riak-kv"
     volumes:
@@ -111,6 +118,7 @@ services:
     environment:
       - CLUSTER_NAME=riakkv
       - COORDINATOR_NODE=coordinator
+      - WAIT_FOR_ERLANG=60
 networks:
   matchmaking-network:
     driver: bridge
