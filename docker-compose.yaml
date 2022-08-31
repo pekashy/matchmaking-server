@@ -30,7 +30,7 @@ services:
     depends_on:
       - start-matchmaking-queue
       # - matched-games-queue
-      # - userdata
+      - userdata
       # - deduplication-cache
       - open-matches-db
       - open-matches-db-conf
@@ -95,7 +95,7 @@ services:
     volumes:
       - ./db/data/user_data:/usr/data/db
     ports:
-      - "27018:27017"
+      - "27017"
   open-matches-db:
     image: cassandra:4
     restart: always

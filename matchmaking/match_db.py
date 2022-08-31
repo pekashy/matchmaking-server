@@ -13,7 +13,6 @@ class MatchDB:
 
     def add_match(self, user: schemas.user.User, logger: logging.Logger):
         logger.info(f'Creating empty match for user {user.id}')
-        # TODO: CREATE KEYSPACE!
         self.session.execute(
             'INSERT INTO available (match_id, user_id, user_table, user_league) VALUES (%s, %s, %s, %s)',
             ('match-' + str(uuid.uuid4()), user.id, str(user.table), str(user.league)))
