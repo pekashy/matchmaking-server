@@ -1,5 +1,7 @@
 from uuid import uuid4
+
 import requests
+
 import schemas.find_game
 import schemas.user
 

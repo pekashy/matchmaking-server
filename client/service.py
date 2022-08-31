@@ -1,7 +1,10 @@
+import atexit
 import logging
-import schemas.find_game as find_game_structs
+
 from flask import Flask, g, jsonify, request
+
 import requestq
+import schemas.find_game as find_game_structs
 
 app = Flask(__name__)
 app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
@@ -15,7 +18,7 @@ def create_logger(corr_id: str) -> logging.Logger:
         "%(asctime)s.%(msecs)03d %(levelname)s %(module)s %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    logger.setLevel(logging.WARNING)
+    logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler("/logs/client.log")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
@@ -38,6 +41,12 @@ def count():
     g.logger.warning("Handling GetGame")
     return jsonify({"Result": "Ok"})
 
+
+def shutdown():
+    mq.shutdown()
+
+
+atexit.register(shutdown)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8050, debug=False)

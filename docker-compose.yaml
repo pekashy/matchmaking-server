@@ -8,6 +8,9 @@ services:
       - "8050:8050"
     networks:
       - matchmaking-network
+    links:
+      - start-matchmaking-queue
+      - userdata
     depends_on:
       - start-matchmaking-queue
       - userdata
@@ -15,18 +18,39 @@ services:
       - ./logs:/logs
   matchmaking:
     build:
-      context: ./matchmaking
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: matchmaking/Dockerfile
     networks:
       - matchmaking-network
     ports:
       - "8051:8050"
+    links:
+      - start-matchmaking-queue
+      - open-matches-db
     depends_on:
       - start-matchmaking-queue
-      - matched-games-queue
-      - userdata
-      - deduplication-cache
-      - open-matches-db-coordinator
+      # - matched-games-queue
+      # - userdata
+      # - deduplication-cache
+      - open-matches-db
+      - open-matches-db-conf
+      # - matched-games-queue
+      # - userdata
+      # - deduplication-cache
+    volumes:
+      - ./logs:/logs
+  start-matchmaking-queue:
+    image: rabbitmq:3-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      # AMQP protocol port
+      - '5672:5672'
+      # HTTP management UI
+      - '15672:15672'
+    networks:
+      - matchmaking-network
     volumes:
       - ./logs:/logs
   transactions:
@@ -38,25 +62,11 @@ services:
     depends_on:
       - matched-games-queue
       - userdata
-  start-matchmaking-queue:
-    image: rabbitmq:3-management-alpine
-    environment:
-      - RABBITMQ_DEFAULT_USER=user
-      - RABBITMQ_DEFAULT_PASS=password
-    ports:
-      # AMQP protocol port
-      - '5672:5672'
-      # HTTP management UI
-      - '15672:15672'
-    networks:
-      - matchmaking-network
-    volumes:
-      - ./logs:/logs
   matched-games-queue:
     image: rabbitmq:3-management-alpine
     environment:
-      - RABBITMQ_DEFAULT_USER=user
-      - RABBITMQ_DEFAULT_PASS=password
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
     ports:
       # AMQP protocol port
       - '5673:5672'
@@ -86,39 +96,33 @@ services:
       - ./db/data/user_data:/usr/data/db
     ports:
       - "27018:27017"
-  open-matches-db-coordinator:
-    build:
-      context: ./matches
-      dockerfile: Dockerfile-riak-coordinator
+  open-matches-db:
+    image: cassandra:4
+    restart: always
     ports:
-      - "8087"
-      - "8098"
+      - "9042"
     environment:
-      - CLUSTER_NAME=riakkv
-      - WAIT_FOR_ERLANG=60
-    labels:
-      - "com.basho.riak.cluster.name=riak-kv"
+      - CASSANDRA_START_RPC=true
+      - CASSANDRA_CLUSTER_NAME=LocalCluster
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_DC=datacenter1
     volumes:
-      - ./db/data/matches:/usr/data/db
+      - ./db/data/matches:/var/lib/cassandra/data
     networks:
       - matchmaking-network
-  open-matches-db-member:
-    build:
-      context: ./matches
-      dockerfile: Dockerfile-riak-member
-    ports:
-      - "8088:8087"
-      - "8099:8098"
-    labels:
-      - "com.basho.riak.cluster.name=riak-kv"
-    networks:
-      - matchmaking-network
+  open-matches-db-conf:
+    container_name: open-matches-db-conf
+    restart: always
+    image: cassandra:4
+    links:
+      - open-matches-db
     depends_on:
-      - open-matches-db-coordinator
-    environment:
-      - CLUSTER_NAME=riakkv
-      - COORDINATOR_NODE=coordinator
-      - WAIT_FOR_ERLANG=60
+      - open-matches-db
+    volumes:
+      - ./db/schemas:/schemas
+    entrypoint: [ "/schemas/cassandra.sh" ]
+    networks:
+      - matchmaking-network
 networks:
   matchmaking-network:
     driver: bridge
