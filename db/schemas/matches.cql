@@ -3,19 +3,28 @@ KEYSPACE IF NOT EXISTS matches WITH REPLICATION = {
       'class': 'SimpleStrategy',
       'replication_factor': 1
 };
-CREATE TABLE IF NOT EXISTS matches.available
+
+DROP TABLE IF EXISTS matches.lobbies;
+DROP TYPE IF EXISTS matches.player;
+
+CREATE TABLE matches.lobbies
 (
-    match_id
+    min_table
+    counter,
+    min_league
+    counter,
+    n_users
+    counter,
+    max_table
+    counter,
+    max_league
+    counter,
+    lobby_id
     text,
-    user_id
+    host_user_id
     text,
-    user_table
-    text,
-    user_league
-    text,
-    PRIMARY
-    KEY
-(
-    match_id
-)
+    users
+    set<text>,
+    PRIMARY KEY(lobby_id)
     );
+

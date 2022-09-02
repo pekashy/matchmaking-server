@@ -29,14 +29,9 @@ services:
       - open-matches-db
     depends_on:
       - start-matchmaking-queue
-      # - matched-games-queue
       - userdata
-      # - deduplication-cache
       - open-matches-db
       - open-matches-db-conf
-      # - matched-games-queue
-      # - userdata
-      # - deduplication-cache
     volumes:
       - ./logs:/logs
   start-matchmaking-queue:
@@ -53,49 +48,16 @@ services:
       - matchmaking-network
     volumes:
       - ./logs:/logs
-  transactions:
-    build:
-      context: ./transactions
-      dockerfile: Dockerfile
-    networks:
-      - matchmaking-network
-    depends_on:
-      - matched-games-queue
-      - userdata
-  matched-games-queue:
-    image: rabbitmq:3-management-alpine
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    ports:
-      # AMQP protocol port
-      - '5673:5672'
-      # HTTP management UI
-      - '15673:15672'
-    networks:
-      - matchmaking-network
-  deduplication-cache:
-    image: redis:7-alpine
-    restart: always
-    ports:
-      - '6379:6379'
-    command: redis-server --save 20 1 --loglevel warning
-    volumes:
-      - ./db/data/dedup_cache:/data
-    networks:
-      - matchmaking-network
   userdata:
-    image: mongo:6.0-focal
+    image: bitnami/redis:7.0.4
     restart: always
     networks:
       - matchmaking-network
-    environment:
-      - MONGO_DATA_DIR=/usr/data/db
-      - MONGO_LOG_DIR=/dev/null
+    command: redis-server --save 20 1 --loglevel warning --protected-mode no
     volumes:
       - ./db/data/user_data:/usr/data/db
     ports:
-      - "27017"
+      - "6379"
   open-matches-db:
     image: cassandra:4
     restart: always
@@ -112,7 +74,6 @@ services:
       - matchmaking-network
   open-matches-db-conf:
     container_name: open-matches-db-conf
-    restart: always
     image: cassandra:4
     links:
       - open-matches-db

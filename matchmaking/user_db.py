@@ -1,17 +1,21 @@
-import pymongo
+import redis
 
-import schemas.user
+import schemas.match
 
 
 class UserDB:
     def __init__(self):
-        self.client = pymongo.MongoClient('userdata', 27017)
-        self.users_db = self.client.users_db
-        self.users = self.users_db.users
+        self.client = redis.Redis(host='userdata', port=6379, db=0)
 
     def is_user_already_in_game(self, user: schemas.user.User) -> bool:
-        user_info_in_db = self.users.find_one({'id': user.id})
-        if not user_info_in_db:
-            return False
+        user_info_in_db = self.client.get(user.id)
 
-        return 'current_match_id' in user_info_in_db
+        return user_info_in_db is not None
+
+    def try_commit_match(self, match: schemas.match.MatchLobby) -> bool:
+        pipeline = self.client.pipeline()
+        for user in match.users:
+            pipeline.setnx(user, match.id)
+            pipeline.persist(user)
+
+        return pipeline.execute(raise_on_error=False)[0]
